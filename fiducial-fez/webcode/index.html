@@ -28,11 +28,11 @@
   <script>
     var displayWidth = 640, displayHeight = 480;
     //var displayWidth = 960, displayHeight = 720;
-    var cmpLevelsWebcam = [1];
-    var cmpLevelsFile = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4];
+    var cmpLevelsWebcamDefault = "1 1.25 1.5 1.75 2 2.25 2.5 2.75 3 3.25 3.5 3.75 4";
 
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false;
+    var cmpLevelsWebcam = [1], cmpLevelsFile = [1];
     var fileImageInput;
     var textImageCompression;
     var lastImageInput;
@@ -94,32 +94,9 @@
       });
 
       fileImageInput.addEventListener("change", handleFileSubmit);
+      textImageCompression.addEventListener("input", updateFileCompressionLevels);
 
-      textImageCompression.addEventListener("input", function() {
-        let text = textImageCompression.value;
-        let levels = text.trim().split(" ");
-
-        textImageCompression.value = text;
-        cmpLevelsFile = [];
-
-        for (let i = 0; i < levels.length; i++) {
-          let level = parseFloat(levels[i]);
-
-          if (level >= 1) {
-            cmpLevelsFile.push(level);
-          }
-        }
-
-        if (cmpLevelsFile.length == 0) {
-          cmpLevelsFile = [1];
-        }
-
-        if (lastImageInput != null && fileLoaded) {
-          processAndDrawImage(lastImageInput, cmpLevelsFile);
-        }
-      });
-
-      textImageCompression.value = cmpLevelsFile.join(" ");
+      setFileCompressionLevelsToDefault();
 
       detector = new AR.Detector();
 
@@ -152,6 +129,35 @@
       }
 
       reader.readAsDataURL(file);
+    }
+
+    function updateFileCompressionLevels() {
+      let text = textImageCompression.value;
+      let levels = text.trim().split(" ");
+
+      textImageCompression.value = text;
+      cmpLevelsFile = [];
+
+      for (let i = 0; i < levels.length; i++) {
+        let level = parseFloat(levels[i]);
+
+        if (level >= 1) {
+          cmpLevelsFile.push(level);
+        }
+      }
+
+      if (cmpLevelsFile.length == 0) {
+        cmpLevelsFile = [1];
+      }
+
+      if (lastImageInput != null && fileLoaded) {
+        processAndDrawImage(lastImageInput, cmpLevelsFile);
+      }
+    }
+
+    function setFileCompressionLevelsToDefault() {
+      textImageCompression.value = cmpLevelsWebcamDefault;
+      updateFileCompressionLevels();
     }
 
     function tick(){
@@ -445,6 +451,7 @@
     <input type="file" id="file-image-input" accept="image/png, image/jpeg">
     <div style="margin: 5px;"></div>
 
+    <input type="button" id="btn-default-compression-levels" value="Default" onclick="setFileCompressionLevelsToDefault()">
     <input type="text" id="text-image-compression" pattern="^\s*(?:\d+(?:\.\d+)?\s*)+$">
     <label for="text-image-compression">File Compression Levels</label>
 
