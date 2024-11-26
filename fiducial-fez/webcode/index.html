@@ -20,10 +20,10 @@
     }
   </style>
 
-  <script type="text/javascript" src="js/libs/polyfill.js"></script> 
-  
-  <script type="text/javascript" src="js/cv.js"></script> 
-  <script type="text/javascript" src="js/aruco.js"></script> 
+  <script type="text/javascript" src="js/libs/polyfill.js"></script>
+
+  <script type="text/javascript" src="js/cv.js"></script>
+  <script type="text/javascript" src="js/aruco.js"></script>
 
   <script>
     var displayWidth = 640, displayHeight = 480;
@@ -36,7 +36,7 @@
     var fileImageInput;
     var textImageCompression;
     var lastImageInput;
-  
+
     function onLoad(){
       video = document.getElementById("video");
       canvas = document.getElementById("canvas");
@@ -47,15 +47,15 @@
 
       canvas.width = displayWidth;
       canvas.height = displayHeight;
-      
+
       if (navigator.mediaDevices === undefined) {
         navigator.mediaDevices = {};
       }
-      
+
       if (navigator.mediaDevices.getUserMedia === undefined) {
         navigator.mediaDevices.getUserMedia = function(constraints) {
           var getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-          
+
           if (!getUserMedia) {
             return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
           }
@@ -65,7 +65,7 @@
           });
         }
       }
-      
+
       navigator.mediaDevices
         .getUserMedia({ audio:false, video: { facingMode: 'environment' } })
         .then(function(stream) {
@@ -80,7 +80,7 @@
         }
       );
 
-      cbPauseVideo.addEventListener("change", function(){
+      cbPauseVideo.addEventListener("change", function() {
         videoPaused = cbPauseVideo.checked;
 
         if (!videoPaused) {
@@ -113,7 +113,7 @@
         if (lastImageInput != null && fileLoaded) {
           processAndDrawImage(lastImageInput, cmpLevelsFile);
         }
-      } );
+      });
 
       textImageCompression.value = cmpLevelsFile.join(" ");
 
@@ -122,7 +122,7 @@
       requestAnimationFrame(tick);
     }
 
-    function handleFileSubmit(){
+    function handleFileSubmit() {
       let files = fileImageInput.files;
 
       fileLoaded = false;
@@ -153,20 +153,20 @@
     function tick(){
       requestAnimationFrame(tick);
 
-      if (video.readyState === video.HAVE_ENOUGH_DATA && !videoPaused){
+      if (video.readyState === video.HAVE_ENOUGH_DATA && !videoPaused) {
         processAndDrawImage(video, cmpLevelsWebcam);
       }
     }
 
-    function getDistance(p1, p2){
+    function getDistance(p1, p2) {
       return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     }
 
-    function isPointWithin(p1, p2, dist){
+    function isPointWithin(p1, p2, dist) {
       return getDistance(p1, p2) <= dist;
     }
 
-    function collectMarkers(markers1, markers2){
+    function collectMarkers(markers1, markers2) {
       var count1 = markers1.length, count2 = markers2.length;
       var avgRadius = 0, totalCount = count1 + count2;
       var markersToAdd = [];
@@ -214,7 +214,7 @@
       }
     }
 
-    function handleMarkerVotes(markers){
+    function handleMarkerVotes(markers) {
       for (let i = 0; i < markers.length; i++) {
         let marker = markers[i];
         let idVotes = marker.idVotes;
@@ -233,7 +233,7 @@
       }
     }
 
-    function fixMarkerScaling(markers, dataToInputMult, dataToDisplayMult){
+    function fixMarkerScaling(markers, dataToInputMult, dataToDisplayMult) {
       for (let i = 0; i < markers.length; i++) {
         let marker = markers[i];
         let corners = marker.corners;
@@ -270,7 +270,7 @@
       }
     }
 
-    function processAndDrawImage(img, cmpLevels){
+    function processAndDrawImage(img, cmpLevels) {
       let [markers, newWidth, newHeight] = processImage(img, cmpLevels);
 
       // Draw at new size for display
@@ -283,7 +283,7 @@
       return markers;
     }
 
-    function processImage(img, cmpLevels, cmpLevelInd=0){
+    function processImage(img, cmpLevels, cmpLevelInd=0) {
       if (cmpLevelInd >= cmpLevels.length) return [[], 0, 0];
 
       let cmpLevel = cmpLevels[cmpLevelInd];
@@ -329,7 +329,7 @@
       return [markers, newWidth, newHeight];
     }
 
-    function drawMarkerDebug(markers){
+    function drawMarkerDebug(markers) {
       drawCorners(markers);
       drawId(markers);
 
@@ -359,18 +359,18 @@
       */
     }
 
-    function drawCorners(markers){
+    function drawCorners(markers) {
       var corners, corner, i, j;
-    
+
       context.lineWidth = 3;
 
-      for (i = 0; i !== markers.length; ++ i){
+      for (i = 0; i !== markers.length; ++ i) {
         corners = markers[i].displayCorners;
-        
+
         context.strokeStyle = "red";
         context.beginPath();
-        
-        for (j = 0; j !== corners.length; ++ j){
+
+        for (j = 0; j !== corners.length; ++ j) {
           corner = corners[j];
           context.moveTo(corner.x, corner.y);
           corner = corners[(j + 1) % corners.length];
@@ -379,28 +379,28 @@
 
         context.stroke();
         context.closePath();
-        
+
         context.strokeStyle = "green";
         context.strokeRect(corners[0].x - 2, corners[0].y - 2, 4, 4);
       }
     }
 
-    function drawId(markers){
+    function drawId(markers) {
       var corners, corner, marker, x, y, i, j;
 
       context.strokeStyle = "blue";
       context.lineWidth = 1;
-      
-      for (i = 0; i !== markers.length; ++ i){
+
+      for (i = 0; i !== markers.length; ++ i) {
         marker = markers[i];
         corners = marker.displayCorners;
-        
+
         x = Infinity;
         y = Infinity;
-        
-        for (j = 0; j !== corners.length; ++ j){
+
+        for (j = 0; j !== corners.length; ++ j) {
           corner = corners[j];
-          
+
           x = Math.min(x, corner.x);
           y = Math.min(y, corner.y);
         }
@@ -433,7 +433,7 @@
     <video id="video" autoplay="true" style="display:none;"></video>
     <canvas id="canvas"></canvas>
     <div style="margin: 5px;"></div>
-  
+
     <input type="checkbox" id="cb-pause-video">
     <label for="cb-pause-video">Paused</label>
 
@@ -447,5 +447,5 @@
   </div>
 
 </body>
-  
+
 </html>

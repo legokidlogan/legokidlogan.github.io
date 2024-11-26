@@ -61,11 +61,11 @@ var allSymbolBits = [
   [ [0,0,1,1,0], [0,0,1,0,0], [0,1,0,1,0], [0,1,0,0,0], [0,0,0,1,0] ], // 27 cornerBR
 ];
 
-AR.Marker = function(id, corners, colorState=0){
+AR.Marker = function(id, corners, colorState=0) {
   var sumX = 0, sumY = 0;
   var maxX = 0, maxY = 0, minX = 100000, minY = 100000;
 
-  for (var i = 0; i < corners.length; i++){
+  for (var i = 0; i < corners.length; i++) {
     let corner = corners[i];
     let x = corner.x;
     let y = corner.y;
@@ -87,7 +87,7 @@ AR.Marker = function(id, corners, colorState=0){
   this.height = maxY - minY;
 };
 
-AR.Detector = function(){
+AR.Detector = function() {
   this.imageOG = new CV.Image();
   this.imageGrey = new CV.Image();
   this.greyRed = new CV.Image();
@@ -103,7 +103,7 @@ AR.Detector = function(){
   this.candidates = [];
 };
 
-AR.Detector.prototype.detect = function(image){
+AR.Detector.prototype.detect = function(image) {
   this.imageOG = image;
 
   CV.grayscale(image, this.imageGrey);
@@ -111,7 +111,7 @@ AR.Detector.prototype.detect = function(image){
 
   CV.redPosterize(image, this.greyRed);
   CV.bluePosterize(image, this.greyBlue);
-  
+
   this.contours = CV.findContours(this.thres, this.binary);
 
   this.candidates = this.findCandidates(this.contours, image.width * 0.20, 0.05, 10);
@@ -121,22 +121,22 @@ AR.Detector.prototype.detect = function(image){
   return this.findMarkers(this.candidates, 49);
 };
 
-AR.Detector.prototype.findCandidates = function(contours, minSize, epsilon, minLength){
+AR.Detector.prototype.findCandidates = function(contours, minSize, epsilon, minLength) {
   var candidates = [], len = contours.length, contour, poly, i;
 
   this.polys = [];
-  
-  for (i = 0; i < len; ++ i){
+
+  for (i = 0; i < len; ++ i) {
     contour = contours[i];
 
-    if (contour.length >= minSize){
+    if (contour.length >= minSize) {
       poly = CV.approxPolyDP(contour, contour.length * epsilon);
 
       this.polys.push(poly);
 
-      if ( (4 === poly.length) && ( CV.isContourConvex(poly) ) ){
+      if ((4 === poly.length) && (CV.isContourConvex(poly))) {
 
-        if ( CV.minEdgeLength(poly) >= minLength){
+        if (CV.minEdgeLength(poly) >= minLength) {
           candidates.push(poly);
         }
       }
@@ -146,16 +146,16 @@ AR.Detector.prototype.findCandidates = function(contours, minSize, epsilon, minL
   return candidates;
 };
 
-AR.Detector.prototype.clockwiseCorners = function(candidates){
+AR.Detector.prototype.clockwiseCorners = function(candidates) {
   var len = candidates.length, dx1, dx2, dy1, dy2, swap, i;
 
-  for (i = 0; i < len; ++ i){
+  for (i = 0; i < len; ++ i) {
     dx1 = candidates[i][1].x - candidates[i][0].x;
     dy1 = candidates[i][1].y - candidates[i][0].y;
     dx2 = candidates[i][2].x - candidates[i][0].x;
     dy2 = candidates[i][2].y - candidates[i][0].y;
 
-    if ( (dx1 * dy2 - dy1 * dx2) < 0){
+    if ((dx1 * dy2 - dy1 * dx2) < 0) {
       swap = candidates[i][1];
       candidates[i][1] = candidates[i][3];
       candidates[i][3] = swap;
@@ -165,9 +165,9 @@ AR.Detector.prototype.clockwiseCorners = function(candidates){
     dx1 = candidates[i][1].x - candidates[i][0].x;
     dy1 = candidates[i][1].y - candidates[i][0].y;
 
-    if (Math.abs(dx1) < Math.abs(dy1)){
+    if (Math.abs(dx1) < Math.abs(dy1)) {
       swap = candidates[i][0];
-      candidates[i][0] = candidates[i][3]; 
+      candidates[i][0] = candidates[i][3];
       candidates[i][3] = candidates[i][2];
       candidates[i][2] = candidates[i][1];
       candidates[i][1] = swap;
@@ -177,24 +177,24 @@ AR.Detector.prototype.clockwiseCorners = function(candidates){
   return candidates;
 };
 
-AR.Detector.prototype.notTooNear = function(candidates, minDist){
+AR.Detector.prototype.notTooNear = function(candidates, minDist) {
   var notTooNear = [], len = candidates.length, dist, dx, dy, i, j, k;
 
-  for (i = 0; i < len; ++ i){
-  
-    for (j = i + 1; j < len; ++ j){
+  for (i = 0; i < len; ++ i) {
+
+    for (j = i + 1; j < len; ++ j) {
       dist = 0;
-      
-      for (k = 0; k < 4; ++ k){
+
+      for (k = 0; k < 4; ++ k) {
         dx = candidates[i][k].x - candidates[j][k].x;
         dy = candidates[i][k].y - candidates[j][k].y;
-      
+
         dist += dx * dx + dy * dy;
       }
-      
-      if ( (dist / 4) < (minDist * minDist) ){
-      
-        if ( CV.perimeter( candidates[i] ) < CV.perimeter( candidates[j] ) ){
+
+      if ((dist / 4) < (minDist * minDist)) {
+
+        if (CV.perimeter(candidates[i]) < CV.perimeter(candidates[j])) {
           candidates[i].tooNear = true;
         }else{
           candidates[j].tooNear = true;
@@ -203,21 +203,21 @@ AR.Detector.prototype.notTooNear = function(candidates, minDist){
     }
   }
 
-  for (i = 0; i < len; ++ i){
-    if ( !candidates[i].tooNear ){
-      notTooNear.push( candidates[i] );
+  for (i = 0; i < len; ++ i) {
+    if (!candidates[i].tooNear) {
+      notTooNear.push(candidates[i]);
     }
   }
 
   return notTooNear;
 };
 
-AR.Detector.prototype.findMarkers = function(candidates, warpSize){
+AR.Detector.prototype.findMarkers = function(candidates, warpSize) {
   var markers = [], len = candidates.length, candidate, marker, i;
 
-  for (i = 0; i < len; ++ i){
+  for (i = 0; i < len; ++ i) {
     candidate = candidates[i];
-  
+
     CV.warp(this.greyRed, this.homographyRed, candidate, warpSize);
     CV.warp(this.greyBlue, this.homographyBlue, candidate, warpSize);
 
@@ -226,54 +226,54 @@ AR.Detector.prototype.findMarkers = function(candidates, warpSize){
 
     marker = this.getMarker(this.homographyGrey, candidate);
 
-    if (marker){
+    if (marker) {
       marker.colorState = this.getColorState(marker, candidate, warpSize);
       markers.push(marker);
     }
   }
-  
+
   return markers;
 };
 
-AR.Detector.prototype.getColorState = function(marker, candidate, warpSize){
+AR.Detector.prototype.getColorState = function(marker, candidate, warpSize) {
   var markerID = marker.id;
 
-  if (symbolIDsThatUseColor[markerID] == undefined){
+  if (symbolIDsThatUseColor[markerID] == undefined) {
     return 0; // White
   }
 
   let redMarker = this.getMarker(this.homographyRed, candidate);
-  if (redMarker != null && redMarker.id == markerID){ return 1; } 
+  if (redMarker != null && redMarker.id == markerID) return 1;
 
   let blueMarker = this.getMarker(this.homographyBlue, candidate);
-  if (blueMarker != null && blueMarker.id == markerID){ return 2; }
+  if (blueMarker != null && blueMarker.id == markerID) return 2;
 
   return 0; // White
 }
 
-AR.Detector.prototype.getMarker = function(imageSrc, candidate){
+AR.Detector.prototype.getMarker = function(imageSrc, candidate) {
   var width = (imageSrc.width / 7) >>> 0,
       minZero = (width * width) >> 1,
       bits = [], rotations = [], distances = [],
       square, pair, inc, i, j;
 
-  for (i = 0; i < 7; ++ i){
+  for (i = 0; i < 7; ++ i) {
     inc = (0 === i || 6 === i)? 1: 6;
-    
-    for (j = 0; j < 7; j += inc){
+
+    for (j = 0; j < 7; j += inc) {
       square = {x: j * width, y: i * width, width: width, height: width};
-      if ( CV.countNonZero(imageSrc, square) > minZero){
+      if (CV.countNonZero(imageSrc, square) > minZero) {
         return null;
       }
     }
   }
 
-  for (i = 0; i < 5; ++ i){
+  for (i = 0; i < 5; ++ i) {
     bits[i] = [];
 
-    for (j = 0; j < 5; ++ j){
+    for (j = 0; j < 5; ++ j) {
       square = {x: (j + 1) * width, y: (i + 1) * width, width: width, height: width};
-      
+
       bits[i][j] = CV.countNonZero(imageSrc, square) > minZero? 1: 0;
     }
   }
@@ -281,27 +281,27 @@ AR.Detector.prototype.getMarker = function(imageSrc, candidate){
   bestDist = 100000;
   bestID = -1;
 
-  for (i = 0; i < allSymbolBits.length; i++){
-    dist = this.hammingDistance( bits, allSymbolBits[i] );
+  for (i = 0; i < allSymbolBits.length; i++) {
+    dist = this.hammingDistance(bits, allSymbolBits[i]);
 
-    if (dist < bestDist){
+    if (dist < bestDist) {
       bestDist = dist;
       bestID = i;
     }
   }
 
-  if (bestDist > hammingDistTolerance){
+  if (bestDist > hammingDistTolerance) {
     return null;
   }
 
-  return new AR.Marker( bestID, candidate );
+  return new AR.Marker(bestID, candidate);
 };
 
-AR.Detector.prototype.hammingDistance = function(bits1, bits2){
+AR.Detector.prototype.hammingDistance = function(bits1, bits2) {
   var dist = 0;
 
-  for (i = 0; i < 5; i++){
-    for (j = 0; j < 5; j++){
+  for (i = 0; i < 5; i++) {
+    for (j = 0; j < 5; j++) {
       dist += bits1[i][j] === bits2[i][j]? 0: 1;
     }
   }
@@ -309,10 +309,10 @@ AR.Detector.prototype.hammingDistance = function(bits1, bits2){
   return dist;
 };
 
-AR.Detector.prototype.mat2id = function(bits){
+AR.Detector.prototype.mat2id = function(bits) {
   var id = 0, i;
-  
-  for (i = 0; i < 5; ++ i){
+
+  for (i = 0; i < 5; ++ i) {
     id <<= 1;
     id |= bits[i][1];
     id <<= 1;
@@ -322,12 +322,12 @@ AR.Detector.prototype.mat2id = function(bits){
   return id;
 };
 
-AR.Detector.prototype.rotate = function(src){
+AR.Detector.prototype.rotate = function(src) {
   var dst = [], len = src.length, i, j;
-  
-  for (i = 0; i < len; ++ i){
+
+  for (i = 0; i < len; ++ i) {
     dst[i] = [];
-    for (j = 0; j < src[i].length; ++ j){
+    for (j = 0; j < src[i].length; ++ j) {
       dst[i][j] = src[src[i].length - j - 1][i];
     }
   }
@@ -335,10 +335,10 @@ AR.Detector.prototype.rotate = function(src){
   return dst;
 };
 
-AR.Detector.prototype.rotate2 = function(src, rotation){
+AR.Detector.prototype.rotate2 = function(src, rotation) {
   var dst = [], len = src.length, i;
-  
-  for (i = 0; i < len; ++ i){
+
+  for (i = 0; i < len; ++ i) {
     dst[i] = src[ (rotation + i) % len ];
   }
 
