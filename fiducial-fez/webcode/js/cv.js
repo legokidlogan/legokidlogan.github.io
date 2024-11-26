@@ -47,7 +47,50 @@ CV.grayscale = function(imageSrc, imageDst){
   
   imageDst.width = imageSrc.width;
   imageDst.height = imageSrc.height;
-  
+
+  return imageDst;
+};
+
+CV.redPosterize = function(imageSrc, imageDst) {
+  var src = imageSrc.data, dst = imageDst.data, len = src.length;
+  var incr = 0;
+
+  for (i = 0; i < len; i += 4) {
+    let r = src[i];
+    let g = src[i + 1];
+    let b = src[i + 2];
+    if (r > 100 && g < 100 && b < 100) {
+      dst[incr++] = 255;
+    } else {
+      dst[incr++] = 0;
+    }
+  }
+
+  imageDst.width = imageSrc.width;
+  imageDst.height = imageSrc.height;
+
+  return imageDst;
+};
+
+CV.bluePosterize = function(imageSrc, imageDst) {
+  var src = imageSrc.data, dst = imageDst.data, len = src.length;
+  var incr = 0;
+
+  for (i = 0; i < len; i += 4) {
+    let r = src[i];
+    let g = src[i + 1];
+    let b = src[i + 2];
+
+    if (r < b * 0.7 && b > 130) {
+      dst[incr++] = 255;
+    } else {
+      dst[incr++] = 0;
+    }
+  }
+
+  imageDst.width = imageSrc.width;
+  imageDst.height = imageSrc.height;
+
   return imageDst;
 };
 

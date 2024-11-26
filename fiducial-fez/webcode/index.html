@@ -26,15 +26,27 @@
   <script type="text/javascript" src="js/aruco.js"></script> 
 
   <script>
+    var displayWidth = 640, displayHeight = 480;
+    //var displayWidth = 960, displayHeight = 720;
+    var cmpLevelsWebcam = [1];
+    var cmpLevelsFile = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4];
+
     var video, canvas, context, imageData, detector;
+    var cbPauseVideo, videoPaused = false, fileLoaded = false;
+    var fileImageInput;
+    var textImageCompression;
+    var lastImageInput;
   
     function onLoad(){
       video = document.getElementById("video");
       canvas = document.getElementById("canvas");
       context = canvas.getContext("2d");
-    
-      canvas.width = parseInt(canvas.style.width);
-      canvas.height = parseInt(canvas.style.height);
+      cbPauseVideo = document.getElementById("cb-pause-video");
+      fileImageInput = document.getElementById("file-image-input");
+      textImageCompression = document.getElementById("text-image-compression");
+
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
       
       if (navigator.mediaDevices === undefined) {
         navigator.mediaDevices = {};
@@ -55,7 +67,7 @@
       }
       
       navigator.mediaDevices
-        .getUserMedia({ video: true })
+        .getUserMedia({ audio:false, video: { facingMode: 'environment' } })
         .then(function(stream) {
           if ("srcObject" in video) {
             video.srcObject = stream;
@@ -67,36 +79,293 @@
           console.log(err.name + ": " + err.message);
         }
       );
-        
+
+      cbPauseVideo.addEventListener("change", function(){
+        videoPaused = cbPauseVideo.checked;
+
+        if (!videoPaused) {
+          fileImageInput.value = null;
+          fileLoaded = false;
+        }
+      });
+
+      fileImageInput.addEventListener("change", handleFileSubmit);
+
+      textImageCompression.addEventListener("input", function() {
+        let text = textImageCompression.value;
+        let levels = text.trim().split(" ");
+
+        textImageCompression.value = text;
+        cmpLevelsFile = [];
+
+        for (let i = 0; i < levels.length; i++) {
+          let level = parseFloat(levels[i]);
+
+          if (level >= 1) {
+            cmpLevelsFile.push(level);
+          }
+        }
+
+        if (cmpLevelsFile.length == 0) {
+          cmpLevelsFile = [1];
+        }
+
+        if (lastImageInput != null && fileLoaded) {
+          processAndDrawImage(lastImageInput, cmpLevelsFile);
+        }
+      } );
+
+      textImageCompression.value = cmpLevelsFile.join(" ");
+
       detector = new AR.Detector();
 
       requestAnimationFrame(tick);
     }
-    
+
+    function handleFileSubmit(){
+      let files = fileImageInput.files;
+
+      fileLoaded = false;
+
+      if (files.length == 0) return;
+
+      if (!videoPaused) {
+        cbPauseVideo.click();
+      }
+
+      let file = files[0];
+      let reader = new FileReader();
+
+      reader.onload = (e) => {
+        let img = new Image();
+
+        img.onload = () => {
+          fileLoaded = true;
+          processAndDrawImage(img, cmpLevelsFile);
+        }
+
+        img.src = e.target.result;
+      }
+
+      reader.readAsDataURL(file);
+    }
+
     function tick(){
       requestAnimationFrame(tick);
-      
-      if (video.readyState === video.HAVE_ENOUGH_DATA){
-        snapshot();
 
-        var markers = detector.detect(imageData);
-        drawCorners(markers);
-        drawId(markers);
+      if (video.readyState === video.HAVE_ENOUGH_DATA && !videoPaused){
+        processAndDrawImage(video, cmpLevelsWebcam);
       }
     }
 
-    function snapshot(){
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    function getDistance(p1, p2){
+      return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     }
-          
+
+    function isPointWithin(p1, p2, dist){
+      return getDistance(p1, p2) <= dist;
+    }
+
+    function collectMarkers(markers1, markers2){
+      var count1 = markers1.length, count2 = markers2.length;
+      var avgRadius = 0, totalCount = count1 + count2;
+      var markersToAdd = [];
+
+      for (let i = 0; i < count1; i++) {
+        let marker = markers1[i];
+
+        avgRadius += marker.width + marker.height;
+      }
+
+      for (let i = 0; i < count2; i++) {
+        let marker = markers2[i];
+
+        avgRadius += marker.width + marker.height;
+      }
+
+      avgRadius /= (totalCount * 2);
+
+      for (let i = 0; i < count2; i++) {
+        let newMarker = markers2[i];
+        let canAdd = true;
+
+        for (let j = 0; j < count1; j++) {
+          let existingMarker = markers1[j];
+
+          if (isPointWithin(newMarker.center, existingMarker.center, avgRadius)) {
+            canAdd = false;
+
+            // Sometimes, extreme compression levels can cause the same symbols to be read with different ids, so do a vote.
+            let idVotes = existingMarker.idVotes;
+            idVotes[newMarker.id] = (idVotes[newMarker.id] || 0) + 1;
+
+            break;
+          }
+        }
+
+        if (canAdd) {
+          markersToAdd.push(newMarker);
+        }
+      }
+
+      // Add afterwards so we don't increase the search space of existing markers
+      for (let i = 0; i < markersToAdd.length; i++) {
+        markers1.push(markersToAdd[i]);
+      }
+    }
+
+    function handleMarkerVotes(markers){
+      for (let i = 0; i < markers.length; i++) {
+        let marker = markers[i];
+        let idVotes = marker.idVotes;
+        let bestVotes = 0, bestId = -1;
+
+        for (let id in idVotes) {
+          let votes = idVotes[id];
+
+          if (votes > bestVotes) {
+            bestVotes = votes;
+            bestId = id;
+          }
+        }
+
+        marker.id = bestId;
+      }
+    }
+
+    function fixMarkerScaling(markers, dataToInputMult, dataToDisplayMult){
+      for (let i = 0; i < markers.length; i++) {
+        let marker = markers[i];
+        let corners = marker.corners;
+        let displayCorners = [];
+
+        for (let j = 0; j < corners.length; j++) {
+          let corner = corners[j];
+          let x = corner.x;
+          let y = corner.y;
+
+          corner.x = x * dataToInputMult;
+          corner.y = y * dataToInputMult;
+          displayCorners[j] = { x: x * dataToDisplayMult, y: y * dataToDisplayMult };
+        }
+
+        marker.displayCorners = displayCorners;
+        marker.idVotes = {};
+        marker.idVotes[marker.id] = 1;
+
+        let center = marker.center;
+        let centerX = center.x;
+        let centerY = center.y;
+
+        center.x = centerX * dataToInputMult;
+        center.y = centerY * dataToInputMult;
+        //marker.displayCenter = { x: centerX * dataToDisplayMult, y: centerY * dataToDisplayMult };
+
+        let width = marker.width;
+        let height = marker.height;
+
+        marker.width = width * dataToInputMult;
+        marker.height = height * dataToInputMult;
+        //marker.displayWidth = width * dataToDisplayMult;
+      }
+    }
+
+    function processAndDrawImage(img, cmpLevels){
+      let [markers, newWidth, newHeight] = processImage(img, cmpLevels);
+
+      // Draw at new size for display
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      context.drawImage(img, 0, 0, newWidth, newHeight);
+
+      drawMarkerDebug(markers);
+
+      return markers;
+    }
+
+    function processImage(img, cmpLevels, cmpLevelInd=0){
+      if (cmpLevelInd >= cmpLevels.length) return [[], 0, 0];
+
+      let cmpLevel = cmpLevels[cmpLevelInd];
+      let imgWidth = img.width, imgHeight = img.height;
+      lastImageInput = img;
+
+      if (imgWidth == 0 || imgHeight == 0) {
+        imgWidth = displayWidth;
+        imgHeight = displayHeight;
+      }
+
+      let cmpWidth = imgWidth / cmpLevel, cmpHeight = imgHeight / cmpLevel;
+      let factorWidth = imgWidth / displayWidth, factorHeight = imgHeight / displayHeight;
+      let inputToDisplayMult = 1;
+
+      if (factorWidth > factorHeight) {
+        inputToDisplayMult = 1 / factorWidth;
+      } else {
+        inputToDisplayMult = 1 / factorHeight;
+      }
+
+      let dataToDisplayMult = inputToDisplayMult * cmpLevel;
+      let dataToInputMult = cmpLevel;
+
+      let newWidth = imgWidth * inputToDisplayMult, newHeight = imgHeight * inputToDisplayMult;
+
+      // Draw at input size to get the compressed image data without display scaling
+      canvas.width = cmpWidth;
+      canvas.height = cmpHeight;
+      context.drawImage(img, 0, 0, cmpWidth, cmpHeight);
+      imageData = context.getImageData(0, 0, cmpWidth, cmpHeight);
+
+      let markers = detector.detect(imageData);
+      fixMarkerScaling(markers, dataToInputMult, dataToDisplayMult);
+
+      let [otherMarkers, ..._] = processImage(img, cmpLevels, cmpLevelInd + 1);
+      collectMarkers(markers, otherMarkers);
+
+      if (cmpLevelInd == 0 && cmpLevels.length > 1) {
+        handleMarkerVotes(markers);
+      }
+
+      return [markers, newWidth, newHeight];
+    }
+
+    function drawMarkerDebug(markers){
+      drawCorners(markers);
+      drawId(markers);
+
+      /*
+      let greyRed = detector.greyRed;
+      let greyBlue = detector.greyBlue;
+      let d = new Uint8ClampedArray(greyRed.width * greyRed.height * 4);
+      let incr = 0;
+
+      for (let i = 0; i < greyRed.data.length; i++) {
+        let valRed = greyRed.data[i];
+        let valBlue = greyBlue.data[i];
+
+        d[incr] = valRed;
+        d[incr + 1] = 0;
+        d[incr + 2] = valBlue;
+        d[incr + 3] = 255;
+        incr += 4;
+      }
+
+      var dataImage = context.createImageData(greyRed.width, greyRed.height);
+      dataImage.data.set(d);
+      context.putImageData(dataImage, 0, 0);
+
+      drawCorners(markers);
+      drawId(markers);
+      */
+    }
+
     function drawCorners(markers){
       var corners, corner, i, j;
     
       context.lineWidth = 3;
 
       for (i = 0; i !== markers.length; ++ i){
-        corners = markers[i].corners;
+        corners = markers[i].displayCorners;
         
         context.strokeStyle = "red";
         context.beginPath();
@@ -117,13 +386,14 @@
     }
 
     function drawId(markers){
-      var corners, corner, x, y, i, j;
-      
+      var corners, corner, marker, x, y, i, j;
+
       context.strokeStyle = "blue";
       context.lineWidth = 1;
       
       for (i = 0; i !== markers.length; ++ i){
-        corners = markers[i].corners;
+        marker = markers[i];
+        corners = marker.displayCorners;
         
         x = Infinity;
         y = Infinity;
@@ -135,7 +405,19 @@
           y = Math.min(y, corner.y);
         }
 
-        context.strokeText(markers[i].id, x, y)
+        let colorState = marker.colorState;
+        let idStr = "" + marker.id;
+
+        if (colorState == 1) {
+          idStr = idStr + "R";
+        } else if (colorState == 2) {
+          idStr = idStr + "B";
+        }
+
+        //x = x + Math.random() * 10;
+        //y = y + Math.random() * 10;
+
+        context.strokeText(idStr, x, y)
       }
     }
 
@@ -149,7 +431,18 @@
   <div id="canvas-container">
     <div style="margin: 10px;"><strong>-= Augmented Reality Marker Detector =-</strong></div>
     <video id="video" autoplay="true" style="display:none;"></video>
-    <canvas id="canvas" style="width:640px; height:480px;"></canvas>
+    <canvas id="canvas"></canvas>
+    <div style="margin: 5px;"></div>
+  
+    <input type="checkbox" id="cb-pause-video">
+    <label for="cb-pause-video">Paused</label>
+
+    <input type="file" id="file-image-input" accept="image/png, image/jpeg">
+    <div style="margin: 5px;"></div>
+
+    <input type="text" id="text-image-compression" pattern="^\s*(?:\d+(?:\.\d+)?\s*)+$">
+    <label for="text-image-compression">File Compression Levels</label>
+
     <div style="margin: 15px;"><strong>Powered by <a href="https://github.com/jcmellado/js-aruco">js-aruco</a></strong></div>
   </div>
 
