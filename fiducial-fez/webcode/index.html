@@ -31,7 +31,7 @@
     var cmpLevelsWebcam = [1];
     var cmpLevelsFile = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4];
 
-    var video, canvas, context, imageData, detector;
+    var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false;
     var fileImageInput;
     var textImageCompression;
@@ -40,13 +40,17 @@
     function onLoad(){
       video = document.getElementById("video");
       canvas = document.getElementById("canvas");
+      canvasSketch = document.getElementById("canvas-sketch");
       context = canvas.getContext("2d");
+      contextSketch = canvasSketch.getContext("2d");
       cbPauseVideo = document.getElementById("cb-pause-video");
       fileImageInput = document.getElementById("file-image-input");
       textImageCompression = document.getElementById("text-image-compression");
 
       canvas.width = displayWidth;
       canvas.height = displayHeight;
+      canvasSketch.width = displayWidth;
+      canvasSketch.height = displayHeight;
 
       if (navigator.mediaDevices === undefined) {
         navigator.mediaDevices = {};
@@ -311,10 +315,10 @@
       let newWidth = imgWidth * inputToDisplayMult, newHeight = imgHeight * inputToDisplayMult;
 
       // Draw at input size to get the compressed image data without display scaling
-      canvas.width = cmpWidth;
-      canvas.height = cmpHeight;
-      context.drawImage(img, 0, 0, cmpWidth, cmpHeight);
-      imageData = context.getImageData(0, 0, cmpWidth, cmpHeight);
+      canvasSketch.width = cmpWidth;
+      canvasSketch.height = cmpHeight;
+      contextSketch.drawImage(img, 0, 0, cmpWidth, cmpHeight);
+      imageData = contextSketch.getImageData(0, 0, cmpWidth, cmpHeight);
 
       let markers = detector.detect(imageData);
       fixMarkerScaling(markers, dataToInputMult, dataToDisplayMult);
@@ -432,6 +436,7 @@
     <div style="margin: 10px;"><strong>-= Fiducial FEZ Scanner =-</strong></div>
     <video id="video" autoplay="true" style="display:none;"></video>
     <canvas id="canvas"></canvas>
+    <canvas id="canvas-sketch" style="visibility: hidden" hidden="true"></canvas>
     <div style="margin: 5px;"></div>
 
     <input type="checkbox" id="cb-pause-video">
