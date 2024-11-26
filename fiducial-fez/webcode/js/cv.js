@@ -1,3 +1,5 @@
+// Taken from https://github.com/jcmellado/js-aruco and modified for Fiducial FEZ
+
 /*
 Copyright (c) 2011 Juan Mellado
 
