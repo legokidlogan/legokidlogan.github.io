@@ -453,7 +453,8 @@
       canvas.height = newHeight;
       context.drawImage(img, 0, 0, newWidth, newHeight);
 
-      drawMarkerDebug(markers);
+      //drawMarkerDebug(markers);
+      drawMarkerOutlines(markers);
 
       procVars.translationState = 1;
     }
@@ -546,6 +547,37 @@
       drawCorners(markers);
       drawId(markers);
       */
+    }
+
+    // Draw colored outlines for the markers, so the user can see if anything was misread.
+    function drawMarkerOutlines(markers) {
+      context.lineWidth = 2;
+
+      for (let i = 0; i < markers.length; i++) {
+        let marker = markers[i];
+        let corners = marker.displayCorners;
+        let colorState = marker.colorState;
+
+        if (colorState == 1) {
+          context.strokeStyle = "red";
+        } else if (colorState == 2) {
+          context.strokeStyle = "blue";
+        } else {
+          context.strokeStyle = "green"; // Green instead of white for the sake of contrast.
+        }
+
+        context.beginPath();
+
+        for (j = 0; j !== corners.length; ++ j) {
+          corner = corners[j];
+          context.moveTo(corner.x, corner.y);
+          corner = corners[(j + 1) % corners.length];
+          context.lineTo(corner.x, corner.y);
+        }
+
+        context.stroke();
+        context.closePath();
+      }
     }
 
     function drawCorners(markers) {
