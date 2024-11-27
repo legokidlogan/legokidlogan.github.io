@@ -146,6 +146,13 @@
           fileLoaded = true;
           inputImage = img;
           updateFileControls();
+
+          // Display unprocessed image immediately
+          let imgSizes = calcImageSizes(img, 1);
+
+          canvas.width = imgSizes.newWidth;
+          canvas.height = imgSizes.newHeight;
+          context.drawImage(img, 0, 0, imgSizes.newWidth, imgSizes.newHeight);
         }
 
         img.src = e.target.result;
@@ -310,28 +317,7 @@
       }
     }
 
-    function startProcessingImage(img, cmpLevels) {
-      procVars.processing = true;
-      procVars.lastTime = document.timeline.currentTime;
-      procVars.markers = [];
-      procVars.cmpLevels = cmpLevels;
-      procVars.cmpLevelInd = 0;
-      procVars.img = img;
-
-      btnProcessImage.value = "Translating...";
-
-      processImageStep();
-    }
-
-    function processImageStep() {
-      var cmpLevels = procVars.cmpLevels;
-      var cmpLevelInd = procVars.cmpLevelInd;
-
-      if (cmpLevelInd >= cmpLevels.length) return;
-
-      var img = procVars.img;
-      var markers = procVars.markers;
-      var cmpLevel = cmpLevels[cmpLevelInd];
+    function calcImageSizes(img, cmpLevel) {
       var imgWidth = img.width, imgHeight = img.height;
 
       if (imgWidth == 0 || imgHeight == 0) {
@@ -351,23 +337,56 @@
 
       let dataToDisplayMult = inputToDisplayMult * cmpLevel;
       let dataToInputMult = cmpLevel;
-
       let newWidth = imgWidth * inputToDisplayMult, newHeight = imgHeight * inputToDisplayMult;
 
-      if (cmpLevelInd == 0) {
-        // Use the first new size as the final size to use for drawing later, to preserve the aspect ratio.
-        procVars.newWidth = newWidth;
-        procVars.newHeight = newHeight;
+      return {
+        imgWidth: imgWidth,
+        imgHeight: imgHeight,
+        cmpWidth: cmpWidth,
+        cmpHeight: cmpHeight,
+        newWidth: newWidth,
+        newHeight: newHeight,
+        dataToDisplayMult: dataToDisplayMult,
+        dataToInputMult: dataToInputMult,
       }
+    }
+
+    function startProcessingImage(img, cmpLevels) {
+      var imgSizes = calcImageSizes(img, cmpLevels[0]);
+
+      procVars.processing = true;
+      procVars.lastTime = document.timeline.currentTime;
+      procVars.markers = [];
+      procVars.cmpLevels = cmpLevels;
+      procVars.cmpLevelInd = 0;
+      procVars.img = img;
+      procVars.newWidth = imgSizes.newWidth;
+      procVars.newHeight = imgSizes.newHeight;
+
+      btnProcessImage.value = "Translating...";
+
+      processImageStep();
+    }
+
+    function processImageStep() {
+      var cmpLevels = procVars.cmpLevels;
+      var cmpLevelInd = procVars.cmpLevelInd;
+
+      if (cmpLevelInd >= cmpLevels.length) return;
+
+      var img = procVars.img;
+      var markers = procVars.markers;
+      var cmpLevel = cmpLevels[cmpLevelInd];
+      var imgSizes = calcImageSizes(img, cmpLevel);
 
       // Draw at input size to get the compressed image data without display scaling
-      canvasSketch.width = cmpWidth;
-      canvasSketch.height = cmpHeight;
-      contextSketch.drawImage(img, 0, 0, cmpWidth, cmpHeight);
-      imageData = contextSketch.getImageData(0, 0, cmpWidth, cmpHeight);
+      canvasSketch.width = imgSizes.cmpWidth;
+      canvasSketch.height = imgSizes.cmpHeight;
+      contextSketch.drawImage(img, 0, 0, imgSizes.cmpWidth, imgSizes.cmpHeight);
+      imageData = contextSketch.getImageData(0, 0, imgSizes.cmpWidth, imgSizes.cmpHeight);
 
       let newMarkers = detector.detect(imageData);
-      fixMarkerScaling(newMarkers, dataToInputMult, dataToDisplayMult);
+      fixMarkerScaling(newMarkers, imgSizes.dataToInputMult, imgSizes.dataToDisplayMult);
       collectMarkers(markers, newMarkers);
 
       if (cmpLevelInd == cmpLevels.length - 1) {
