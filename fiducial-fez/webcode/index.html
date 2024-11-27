@@ -33,12 +33,12 @@
     var cmpLevelsWebcamDefault = "1 1.25 1.5 1.75 2 2.25 2.5 2.75 3 3.25 3.5 3.75 4";
     var timePerProcessStep = 100; // ms
     var markerSizeFracCutoff = 0.5; // If a markers is smaller than this * the average size, it is discarded.
-    var rowsPerPlate = 8; // TODO: Let the user specify this
     var tileGapFrac = 0.3; // From fez_grasshopper.gh
+    var rowsPerPlate = 8;
 
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false;
-    var fileImageInput, textImageCompression, btnProcessImage, lblEnglishOutput;
+    var fileImageInput, textImageCompression, textRowsPerPlate, btnProcessImage, lblEnglishOutput;
     var cmpLevelsWebcam = [1], cmpLevelsFile = [1];
     var inputImage;
 
@@ -66,13 +66,18 @@
       cbPauseVideo = document.getElementById("cb-pause-video");
       fileImageInput = document.getElementById("file-image-input");
       textImageCompression = document.getElementById("text-image-compression");
+      textRowsPerPlate = document.getElementById("text-rows-per-plate");
       btnProcessImage = document.getElementById("btn-process-image");
       lblEnglishOutput = document.getElementById("label-english-output");
+      cbUseBaseplates = document.getElementById("cb-use-baseplates");
 
       canvas.width = displayWidth;
       canvas.height = displayHeight;
       canvasSketch.width = displayWidth;
       canvasSketch.height = displayHeight;
+
+      textRowsPerPlate.value = "" + rowsPerPlate;
+      textRowsPerPlate.placeholder = "" + rowsPerPlate;
 
       if (navigator.mediaDevices === undefined) {
         navigator.mediaDevices = {};
@@ -126,6 +131,19 @@
         lblEnglishOutput.textContent = "";
 
         startProcessingImage(inputImage, cmpLevelsFile);
+      });
+
+      textRowsPerPlate.addEventListener("input", function() {
+        rowsPerPlate = Math.max(parseInt(textRowsPerPlate.value), 1);
+
+        let str = "" + rowsPerPlate
+
+        if (str == "NaN") {
+          rowsPerPlate = 1;
+          str = "";
+        }
+
+        textRowsPerPlate.value = str;
       });
 
       setFileCompressionLevelsToDefault();
@@ -666,6 +684,10 @@
       <input type="button" id="btn-default-compression-levels" value="Default" onclick="setFileCompressionLevelsToDefault()">
       <input type="text" id="text-image-compression" pattern="^\s*(?:\d+(?:\.\d+)?\s*)+$">
       <label for="text-image-compression" id="label-image-compression">Compression Levels</label>
+
+      <div style="margin: 5px;"></div>
+      <input type="text" id="text-rows-per-plate" pattern="^[1-9]\d*$" size="2">
+      <label for="text-rows-per-plate" id="label-rows-per-plate">Rows Per Plate</label>
 
       <div style="margin: 5px;"></div>
       <input type="button" id="btn-process-image" value="Translate">
