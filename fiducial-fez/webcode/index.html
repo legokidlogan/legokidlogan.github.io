@@ -30,6 +30,7 @@
     //var displayWidth = 960, displayHeight = 720;
     var cmpLevelsWebcamDefault = "1 1.25 1.5 1.75 2 2.25 2.5 2.75 3 3.25 3.5 3.75 4";
     var timePerProcessStep = 100; // ms
+    var markerSizeFracCutoff = 0.5; // If a markers is smaller than this * the average size, it is discarded.
 
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false;
@@ -213,6 +214,22 @@
       return getDistance(p1, p2) <= dist;
     }
 
+    function getAverageMarkerSize(markers) {
+      var avgWidth = 0, avgHeight = 0, count = markers.length;
+
+      for (let i = 0; i < count; i++) {
+        let marker = markers[i];
+
+        avgWidth += marker.width;
+        avgHeight += marker.height;
+      }
+
+      avgWidth /= count;
+      avgHeight /= count;
+
+      return [avgWidth, avgHeight];
+    }
+
     function collectMarkers(markers1, markers2) {
       var count1 = markers1.length, count2 = markers2.length;
       var avgRadius = 0, totalCount = count1 + count2;
@@ -317,6 +334,20 @@
       }
     }
 
+    function removeSmallMarkers(markers) {
+      var [avgWidth, avgHeight] = getAverageMarkerSize(markers);
+      var cutoffWidth = avgWidth * markerSizeFracCutoff;
+      var cutoffHeight = avgHeight * markerSizeFracCutoff;
+
+      for (let i = markers.length - 1; i >= 0; i--) {
+        let marker = markers[i];
+
+        if (marker.width < cutoffWidth || marker.height < cutoffHeight) {
+          markers.splice(i, 1);
+        }
+      }
+    }
+
     function calcImageSizes(img, cmpLevel) {
       var imgWidth = img.width, imgHeight = img.height;
 
@@ -401,6 +432,10 @@
       var img = procVars.img;
       var markers = procVars.markers;
       var newWidth = procVars.newWidth, newHeight = procVars.newHeight;
+
+      // Rarely, glue in the magnets can get erroneously read as symbols
+      // However, they are comparatively small so they are easy to filter out by size.
+      removeSmallMarkers(markers);
 
       // Draw at new size for display
       canvas.width = newWidth;
