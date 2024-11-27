@@ -32,10 +32,9 @@
 
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false;
+    var fileImageInput, textImageCompression, btnProcessImage;
     var cmpLevelsWebcam = [1], cmpLevelsFile = [1];
-    var fileImageInput;
-    var textImageCompression;
-    var lastImageInput;
+    var inputImage;
 
     function onLoad() {
       video = document.getElementById("video");
@@ -46,6 +45,7 @@
       cbPauseVideo = document.getElementById("cb-pause-video");
       fileImageInput = document.getElementById("file-image-input");
       textImageCompression = document.getElementById("text-image-compression");
+      btnProcessImage = document.getElementById("btn-process-image");
 
       canvas.width = displayWidth;
       canvas.height = displayHeight;
@@ -90,13 +90,21 @@
         if (!videoPaused) {
           fileImageInput.value = null;
           fileLoaded = false;
+          updateFileControls();
         }
       });
 
       fileImageInput.addEventListener("change", handleFileSubmit);
       textImageCompression.addEventListener("input", updateFileCompressionLevels);
 
+      btnProcessImage.addEventListener("click", function() {
+        if (!fileLoaded) return;
+
+        processAndDrawImage(inputImage, cmpLevelsFile);
+      });
+
       setFileCompressionLevelsToDefault();
+      updateFileControls();
 
       detector = new AR.Detector();
 
@@ -107,6 +115,7 @@
       let files = fileImageInput.files;
 
       fileLoaded = false;
+      updateFileControls();
 
       if (files.length == 0) return;
 
@@ -122,7 +131,8 @@
 
         img.onload = () => {
           fileLoaded = true;
-          processAndDrawImage(img, cmpLevelsFile);
+          inputImage = img;
+          updateFileControls();
         }
 
         img.src = e.target.result;
@@ -149,10 +159,12 @@
       if (cmpLevelsFile.length == 0) {
         cmpLevelsFile = [1];
       }
+    }
 
-      if (lastImageInput != null && fileLoaded) {
-        processAndDrawImage(lastImageInput, cmpLevelsFile);
-      }
+    function updateFileControls() {
+      var divFileControls = document.getElementById("div-file-controls");
+
+      divFileControls.style.visibility = fileLoaded ? "visible" : "hidden";
     }
 
     function setFileCompressionLevelsToDefault() {
@@ -298,7 +310,6 @@
 
       let cmpLevel = cmpLevels[cmpLevelInd];
       let imgWidth = img.width, imgHeight = img.height;
-      lastImageInput = img;
 
       if (imgWidth == 0 || imgHeight == 0) {
         imgWidth = displayWidth;
@@ -451,9 +462,14 @@
     <input type="file" id="file-image-input" accept="image/png, image/jpeg">
     <div style="margin: 5px;"></div>
 
-    <input type="button" id="btn-default-compression-levels" value="Default" onclick="setFileCompressionLevelsToDefault()">
-    <input type="text" id="text-image-compression" pattern="^\s*(?:\d+(?:\.\d+)?\s*)+$">
-    <label for="text-image-compression">File Compression Levels</label>
+    <div id="div-file-controls">
+      <input type="button" id="btn-default-compression-levels" value="Default" onclick="setFileCompressionLevelsToDefault()">
+      <input type="text" id="text-image-compression" pattern="^\s*(?:\d+(?:\.\d+)?\s*)+$">
+      <label for="text-image-compression" id="label-image-compression">Compression Levels</label>
+
+      <div style="margin: 5px;"></div>
+      <input type="button" id="btn-process-image" value="Translate">
+    </div>
 
     <div style="margin: 15px;"><strong>Made for <a href="https://github.com/legokidlogan/fiducial-fez">Fiducial FEZ</a></strong></div>
     <div style="margin: 15px;"><strong>Powered by <a href="https://github.com/jcmellado/js-aruco">js-aruco</a></strong></div>
