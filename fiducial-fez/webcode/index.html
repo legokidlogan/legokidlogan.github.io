@@ -29,12 +29,24 @@
     var displayWidth = 640, displayHeight = 480;
     //var displayWidth = 960, displayHeight = 720;
     var cmpLevelsWebcamDefault = "1 1.25 1.5 1.75 2 2.25 2.5 2.75 3 3.25 3.5 3.75 4";
+    var timePerProcessStep = 100; // ms
 
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false;
     var fileImageInput, textImageCompression, btnProcessImage;
     var cmpLevelsWebcam = [1], cmpLevelsFile = [1];
     var inputImage;
+
+    var procVars = { // iOS devices will reload the page if a frame takes too long to complete, so we need to process over time.
+      processing: false,
+      lastTime: 0,
+      markers: [],
+      newWidth: 0,
+      newHeight: 0,
+      cmpLevels: [],
+      cmpLevelInd: 0,
+      img: null,
+    }
 
     function onLoad() {
       video = document.getElementById("video");
@@ -99,8 +111,9 @@
 
       btnProcessImage.addEventListener("click", function() {
         if (!fileLoaded) return;
+        if (procVars.processing) return;
 
-        processAndDrawImage(inputImage, cmpLevelsFile);
+        startProcessingImage(inputImage, cmpLevelsFile);
       });
 
       setFileCompressionLevelsToDefault();
@@ -172,11 +185,16 @@
       updateFileCompressionLevels();
     }
 
-    function tick() {
+    function tick(now) {
       requestAnimationFrame(tick);
 
-      if (video.readyState === video.HAVE_ENOUGH_DATA && !videoPaused) {
-        processAndDrawImage(video, cmpLevelsWebcam);
+      if (procVars.processing) {
+        if (now - procVars.lastTime >= timePerProcessStep) {
+          procVars.lastTime = now;
+          processImageStep();
+        }
+      } else if (video.readyState === video.HAVE_ENOUGH_DATA && !videoPaused) {
+        startProcessingImage(video, cmpLevelsWebcam);
       }
     }
 
@@ -292,24 +310,29 @@
       }
     }
 
-    function processAndDrawImage(img, cmpLevels) {
-      let [markers, newWidth, newHeight] = processImage(img, cmpLevels);
+    function startProcessingImage(img, cmpLevels) {
+      procVars.processing = true;
+      procVars.lastTime = document.timeline.currentTime;
+      procVars.markers = [];
+      procVars.cmpLevels = cmpLevels;
+      procVars.cmpLevelInd = 0;
+      procVars.img = img;
 
-      // Draw at new size for display
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-      context.drawImage(img, 0, 0, newWidth, newHeight);
+      btnProcessImage.value = "Translating...";
 
-      drawMarkerDebug(markers);
-
-      return markers;
+      processImageStep();
     }
 
-    function processImage(img, cmpLevels, cmpLevelInd=0) {
-      if (cmpLevelInd >= cmpLevels.length) return [[], 0, 0];
+    function processImageStep() {
+      var cmpLevels = procVars.cmpLevels;
+      var cmpLevelInd = procVars.cmpLevelInd;
 
-      let cmpLevel = cmpLevels[cmpLevelInd];
-      let imgWidth = img.width, imgHeight = img.height;
+      if (cmpLevelInd >= cmpLevels.length) return;
+
+      var img = procVars.img;
+      var markers = procVars.markers;
+      var cmpLevel = cmpLevels[cmpLevelInd];
+      var imgWidth = img.width, imgHeight = img.height;
 
       if (imgWidth == 0 || imgHeight == 0) {
         imgWidth = displayWidth;
@@ -331,23 +354,50 @@
 
       let newWidth = imgWidth * inputToDisplayMult, newHeight = imgHeight * inputToDisplayMult;
 
+      if (cmpLevelInd == 0) {
+        // Use the first new size as the final size to use for drawing later, to preserve the aspect ratio.
+        procVars.newWidth = newWidth;
+        procVars.newHeight = newHeight;
+      }
+
       // Draw at input size to get the compressed image data without display scaling
       canvasSketch.width = cmpWidth;
       canvasSketch.height = cmpHeight;
       contextSketch.drawImage(img, 0, 0, cmpWidth, cmpHeight);
       imageData = contextSketch.getImageData(0, 0, cmpWidth, cmpHeight);
 
-      let markers = detector.detect(imageData);
-      fixMarkerScaling(markers, dataToInputMult, dataToDisplayMult);
+      let newMarkers = detector.detect(imageData);
+      fixMarkerScaling(newMarkers, dataToInputMult, dataToDisplayMult);
+      collectMarkers(markers, newMarkers);
 
-      let [otherMarkers, ..._] = processImage(img, cmpLevels, cmpLevelInd + 1);
-      collectMarkers(markers, otherMarkers);
-
-      if (cmpLevelInd == 0 && cmpLevels.length > 1) {
+      if (cmpLevelInd == cmpLevels.length - 1) {
         handleMarkerVotes(markers);
+        onImageProcessed();
+      } else {
+        procVars.cmpLevelInd = cmpLevelInd + 1;
       }
+    }
 
-      return [markers, newWidth, newHeight];
+    function onImageProcessed() {
+      var img = procVars.img;
+      var markers = procVars.markers;
+      var newWidth = procVars.newWidth, newHeight = procVars.newHeight;
+
+      // Draw at new size for display
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      context.drawImage(img, 0, 0, newWidth, newHeight);
+
+      drawMarkerDebug(markers);
+
+      // TODO: Start translation
+
+      // TEMP: later this should be done once translation is complete, which may or may not also need to be spread over time.
+      procVars.processing = false;
+      procVars.img = false;
+      procVars.markers = [];
+
+      btnProcessImage.value = "Translate";
     }
 
     function drawMarkerDebug(markers) {
