@@ -21,6 +21,8 @@
   </style>
 
   <script type="text/javascript" src="js/libs/polyfill.js"></script>
+  <script type="text/javascript" src="js/libs/bare_vector.js"></script>
+  <script type="text/javascript" src="js/libs/fez_to_english.js"></script>
 
   <script type="text/javascript" src="js/cv.js"></script>
   <script type="text/javascript" src="js/aruco.js"></script>
@@ -31,15 +33,18 @@
     var cmpLevelsWebcamDefault = "1 1.25 1.5 1.75 2 2.25 2.5 2.75 3 3.25 3.5 3.75 4";
     var timePerProcessStep = 100; // ms
     var markerSizeFracCutoff = 0.5; // If a markers is smaller than this * the average size, it is discarded.
+    var rowsPerPlate = 8; // TODO: Let the user specify this
+    var tileGapFrac = 0.3; // From fez_grasshopper.gh
 
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false;
-    var fileImageInput, textImageCompression, btnProcessImage;
+    var fileImageInput, textImageCompression, btnProcessImage, lblEnglishOutput;
     var cmpLevelsWebcam = [1], cmpLevelsFile = [1];
     var inputImage;
 
     var procVars = { // iOS devices will reload the page if a frame takes too long to complete, so we need to process over time.
       processing: false,
+      translationState: 0,
       lastTime: 0,
       markers: [],
       newWidth: 0,
@@ -48,6 +53,9 @@
       cmpLevelInd: 0,
       img: null,
     }
+
+    var markerIDLookup = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "KQ", "L", "M", "N", "O", "P", "R", "S", "T", "UV", "W", "X", "Y", "Z", "cornerTL", "cornerTR", "cornerBL", "cornerBR"];
+
 
     function onLoad() {
       video = document.getElementById("video");
@@ -59,6 +67,7 @@
       fileImageInput = document.getElementById("file-image-input");
       textImageCompression = document.getElementById("text-image-compression");
       btnProcessImage = document.getElementById("btn-process-image");
+      lblEnglishOutput = document.getElementById("label-english-output");
 
       canvas.width = displayWidth;
       canvas.height = displayHeight;
@@ -114,6 +123,8 @@
         if (!fileLoaded) return;
         if (procVars.processing) return;
 
+        lblEnglishOutput.textContent = "";
+
         startProcessingImage(inputImage, cmpLevelsFile);
       });
 
@@ -129,6 +140,7 @@
       let files = fileImageInput.files;
 
       fileLoaded = false;
+      lblEnglishOutput.textContent = "";
       updateFileControls();
 
       if (files.length == 0) return;
@@ -199,19 +211,17 @@
       if (procVars.processing) {
         if (now - procVars.lastTime >= timePerProcessStep) {
           procVars.lastTime = now;
-          processImageStep();
+
+          if (procVars.translationState == 0) {
+            processImageStep();
+          } else if (procVars.translationState == 1) {
+            procVars.translationState = 2;
+            translateMarkedImage();
+          }
         }
       } else if (video.readyState === video.HAVE_ENOUGH_DATA && !videoPaused) {
         startProcessingImage(video, cmpLevelsWebcam);
       }
-    }
-
-    function getDistance(p1, p2) {
-      return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
-    }
-
-    function isPointWithin(p1, p2, dist) {
-      return getDistance(p1, p2) <= dist;
     }
 
     function getAverageMarkerSize(markers) {
@@ -386,6 +396,7 @@
       var imgSizes = calcImageSizes(img, cmpLevels[0]);
 
       procVars.processing = true;
+      procVars.translationState = 0;
       procVars.lastTime = document.timeline.currentTime;
       procVars.markers = [];
       procVars.cmpLevels = cmpLevels;
@@ -444,14 +455,67 @@
 
       drawMarkerDebug(markers);
 
-      // TODO: Start translation
+      procVars.translationState = 1;
+    }
 
-      // TEMP: later this should be done once translation is complete, which may or may not also need to be spread over time.
-      procVars.processing = false;
-      procVars.img = false;
-      procVars.markers = [];
+    function translateMarker(marker) {
+      var translation = markerIDLookup[marker.id];
 
+      if (translation == "KQ" || translation == "UV") {
+        let colorState = marker.colorState;
+
+        switch (colorState) {
+          case 1:
+            translation = translation[0];
+            break;
+          case 2:
+            translation = translation[1];
+            break;
+          default:
+            translation = "(" + translation + ")";
+            break;
+        }
+      }
+
+      return translation;
+    }
+
+    function findClosestMarker(markers, point, minDist=Infinity) {
+      var closestMarker = null;
+      var closestMarkerInd = -1;
+
+      for (let i = 0; i < markers.length; i++) {
+        let marker = markers[i];
+        let dist = getDistance(marker.center, point);
+
+        if (dist < minDist) {
+          minDist = dist;
+          closestMarker = marker;
+          closestMarkerInd = i;
+        }
+      }
+
+      return [closestMarker, closestMarkerInd];
+    }
+
+    function translateMarkedImage() {
+      var img = procVars.img;
+      var englishStr = F2E.translateMarkers(procVars.markers, img.width, img.height);
+
+      lblEnglishOutput.textContent = "Translation:\n\n" + englishStr;
       btnProcessImage.value = "Translate";
+
+      if (englishStr.substring(0, 6) == "ERROR:") {
+        lblEnglishOutput.style.backgroundColor = "mistyrose";
+      } else {
+        lblEnglishOutput.style.backgroundColor = "honeydew";
+      }
+
+      // Clear data
+      procVars.processing = false;
+      procVars.translationState = 0;
+      procVars.img = null;
+      procVars.markers = [];
     }
 
     function drawMarkerDebug(markers) {
@@ -575,6 +639,10 @@
       <input type="button" id="btn-process-image" value="Translate">
     </div>
 
+    <div style="margin: 10px;"></div>
+    <label id="label-english-output" style="background-color:honeydew; white-space: pre-line"></label>
+
+    <div style="margin: 50px;"></div>
     <div style="margin: 15px;"><strong>Made for <a href="https://github.com/legokidlogan/fiducial-fez">Fiducial FEZ</a></strong></div>
     <div style="margin: 15px;"><strong>Powered by <a href="https://github.com/jcmellado/js-aruco">js-aruco</a></strong></div>
   </div>
