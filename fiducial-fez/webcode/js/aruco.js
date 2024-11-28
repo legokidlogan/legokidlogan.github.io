@@ -31,6 +31,9 @@ References:
 var AR = AR || {};
 
 var hammingDistTolerance = 2;
+var colorSamplesPerSquare = 10;
+var colorSampleMoveInFrac = 0.25 / 2;
+var colorSampleThreshold = 0.5;
 var symbolIDsThatUseColor = { 10: true, 19: true };
 var allSymbolBits = [
   [ [0,0,0,0,0], [1,1,0,1,1], [0,1,1,1,0], [0,0,0,0,0], [0,0,0,0,0] ], //  0 A
@@ -92,13 +95,8 @@ AR.Marker = function(id, corners, colorState=0) {
 AR.Detector = function() {
   this.imageOG = new CV.Image();
   this.imageGrey = new CV.Image();
-  this.greyRed = new CV.Image();
-  this.greyBlue = new CV.Image();
   this.thres = new CV.Image();
-  this.homographyOG = new CV.Image();
   this.homographyGrey = new CV.Image();
-  this.homographyRed = new CV.Image();
-  this.homographyBlue = new CV.Image();
   this.binary = [];
   this.contours = [];
   this.polys = [];
@@ -110,9 +108,6 @@ AR.Detector.prototype.detect = function(image) {
 
   CV.grayscale(image, this.imageGrey);
   CV.adaptiveThreshold(this.imageGrey, this.thres, 2, 7);
-
-  CV.redPosterize(image, this.greyRed);
-  CV.bluePosterize(image, this.greyBlue);
 
   this.contours = CV.findContours(this.thres, this.binary);
 
@@ -222,9 +217,6 @@ AR.Detector.prototype.findMarkers = function(candidates, warpSize) {
   for (i = 0; i < len; ++ i) {
     candidate = candidates[i];
 
-    CV.warp(this.greyRed, this.homographyRed, candidate, warpSize);
-    CV.warp(this.greyBlue, this.homographyBlue, candidate, warpSize);
-
     CV.warp(this.imageGrey, this.homographyGrey, candidate, warpSize);
     CV.threshold(this.homographyGrey, this.homographyGrey, CV.otsu(this.homographyGrey));
 
@@ -239,6 +231,19 @@ AR.Detector.prototype.findMarkers = function(candidates, warpSize) {
   return markers;
 };
 
+AR.Detector.prototype.readPixel = function(img, x, y) {
+  x = Math.floor(x);
+  y = Math.floor(y);
+
+  var data = img.data;
+  var index = ((y * img.width) + x) * 4;
+  var r = data[index];
+  var g = data[index + 1];
+  var b = data[index + 2];
+
+  return [r, g, b];
+}
+
 AR.Detector.prototype.getColorState = function(marker, candidate, warpSize) {
   var markerID = marker.id;
 
@@ -246,11 +251,60 @@ AR.Detector.prototype.getColorState = function(marker, candidate, warpSize) {
     return 0; // White
   }
 
-  let redMarker = this.getMarker(this.homographyRed, candidate);
-  if (redMarker != null && redMarker.id == markerID) return 1;
+  var img = this.imageOG;
+  var bitRows = allSymbolBits[markerID];
+  var markerWidth = marker.width;
+  var markerHeight = marker.height;
+  var moveInX = markerWidth * colorSampleMoveInFrac;
+  var moveInY = markerHeight * colorSampleMoveInFrac;
+  var x0 = candidate[0].x + moveInX;
+  var y0 = candidate[0].y + moveInY;
+  var x1 = candidate[2].x - moveInX;
+  var y1 = candidate[2].y - moveInY;
 
-  let blueMarker = this.getMarker(this.homographyBlue, candidate);
-  if (blueMarker != null && blueMarker.id == markerID) return 2;
+  var redScore = 0;
+  var blueScore = 0;
+  var coloredSquares = 0;
+
+  // Sample the colored (bit value of 1) squares in the marker
+  for (let r = 0; r < 5; r++) {
+    let bitRow = bitRows[r];
+
+    for (let c = 0; c < 5; c++) {
+      let bit = bitRow[c];
+
+      if (bit == 0) continue;
+
+      let cFrac = (c + 1) / 6;
+      let rFrac = (r + 1) / 6;
+
+      coloredSquares++;
+
+      for (let i = 0; i < colorSamplesPerSquare; i++) {
+        let x = lerp(x0, x1, cFrac + Math.random() * 0.2 - 0.1);
+        let y = lerp(y0, y1, rFrac + Math.random() * 0.2 - 0.1);
+        let [R, G, B] = this.readPixel(img, x, y);
+        let [h, s, v] = rgb2hsv(R, G, B);
+
+        if (s / v > 0.4) {
+          if (h < 30 || h > 330) {
+            redScore++;
+          } else if (h > 150 && h < 270) {
+            blueScore++;
+          }
+        }
+      }
+    }
+  }
+
+  redScore /= (colorSamplesPerSquare * coloredSquares);
+  blueScore /= (colorSamplesPerSquare * coloredSquares);
+
+  if (redScore > blueScore) {
+    if (redScore > colorSampleThreshold) return 1; // Red
+  } else if (blueScore > colorSampleThreshold) {
+    return 2; // Blue
+  }
 
   return 0; // White
 }

@@ -32,8 +32,6 @@ References:
 
 var CV = CV || {};
 
-let tripletLength = (a, b, c) => Math.sqrt(a * a + b * b + c * c);
-
 
 CV.Image = function(width, height, data) {
   this.width = width || 0;
@@ -48,50 +46,6 @@ CV.grayscale = function(imageSrc, imageDst) {
   for (; i < len; i += 4) {
     dst[j ++] =
       (src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114 + 0.5) & 0xff;
-  }
-
-  imageDst.width = imageSrc.width;
-  imageDst.height = imageSrc.height;
-
-  return imageDst;
-};
-
-CV.redPosterize = function(imageSrc, imageDst) {
-  var src = imageSrc.data, dst = imageDst.data, len = src.length;
-  var incr = 0;
-
-  for (i = 0; i < len; i += 4) {
-    let r = src[i];
-    let g = src[i + 1];
-    let b = src[i + 2];
-
-    if (r > 100 && g < r * 0.7 && b < r * 0.7) {
-      dst[incr++] = 255;
-    } else {
-      dst[incr++] = 0;
-    }
-  }
-
-  imageDst.width = imageSrc.width;
-  imageDst.height = imageSrc.height;
-
-  return imageDst;
-};
-
-CV.bluePosterize = function(imageSrc, imageDst) {
-  var src = imageSrc.data, dst = imageDst.data, len = src.length;
-  var incr = 0;
-
-  for (i = 0; i < len; i += 4) {
-    let r = src[i];
-    let g = src[i + 1];
-    let b = src[i + 2];
-
-    if (r < b * 0.7 && (b + g / 8) > 120 && tripletLength(r, g, b) > 145) {
-      dst[incr++] = 255;
-    } else {
-      dst[incr++] = 0;
-    }
   }
 
   imageDst.width = imageSrc.width;
