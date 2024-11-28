@@ -541,31 +541,6 @@
     function drawMarkerDebug(markers) {
       drawCorners(markers);
       drawId(markers);
-
-      /*
-      let greyRed = detector.greyRed;
-      let greyBlue = detector.greyBlue;
-      let d = new Uint8ClampedArray(greyRed.width * greyRed.height * 4);
-      let incr = 0;
-
-      for (let i = 0; i < greyRed.data.length; i++) {
-        let valRed = greyRed.data[i];
-        let valBlue = greyBlue.data[i];
-
-        d[incr] = valRed;
-        d[incr + 1] = 0;
-        d[incr + 2] = valBlue;
-        d[incr + 3] = 255;
-        incr += 4;
-      }
-
-      var dataImage = context.createImageData(greyRed.width, greyRed.height);
-      dataImage.data.set(d);
-      context.putImageData(dataImage, 0, 0);
-
-      drawCorners(markers);
-      drawId(markers);
-      */
     }
 
     // Draw colored outlines for the markers, so the user can see if anything was misread.
@@ -653,9 +628,6 @@
         } else if (colorState == 2) {
           idStr = idStr + "B";
         }
-
-        //x = x + Math.random() * 10;
-        //y = y + Math.random() * 10;
 
         context.strokeText(idStr, x, y)
       }
