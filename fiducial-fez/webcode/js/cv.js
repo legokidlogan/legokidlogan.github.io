@@ -32,6 +32,9 @@ References:
 
 var CV = CV || {};
 
+let tripletLength = (a, b, c) => Math.sqrt(a * a + b * b + c * c);
+
+
 CV.Image = function(width, height, data) {
   this.width = width || 0;
   this.height = height || 0;
@@ -61,7 +64,8 @@ CV.redPosterize = function(imageSrc, imageDst) {
     let r = src[i];
     let g = src[i + 1];
     let b = src[i + 2];
-    if (r > 100 && g < 100 && b < 100) {
+
+    if (r > 100 && g < r * 0.7 && b < r * 0.7) {
       dst[incr++] = 255;
     } else {
       dst[incr++] = 0;
@@ -83,7 +87,7 @@ CV.bluePosterize = function(imageSrc, imageDst) {
     let g = src[i + 1];
     let b = src[i + 2];
 
-    if (r < b * 0.7 && b > 130) {
+    if (r < b * 0.7 && (b + g / 8) > 120 && tripletLength(r, g, b) > 145) {
       dst[incr++] = 255;
     } else {
       dst[incr++] = 0;
