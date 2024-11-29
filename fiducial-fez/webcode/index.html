@@ -36,12 +36,15 @@
     var markerSizeFracCutoff = 0.5; // If a markers is smaller than this * the average size, it is discarded.
     var tileGapFrac = 0.3; // From fez_grasshopper.gh
     var rowsPerPlate = 8;
+    var symbolSize = 2;
 
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
-    var cbPauseVideo, videoPaused = false, fileLoaded = false;
+    var cbPauseVideo, videoPaused = false, fileLoaded = false, englishUseBaseplates = true, useRedAndBlue = true;
     var fileImageInput, textImageCompression, textRowsPerPlate, btnProcessImage, lblEnglishOutput;
+    var textaEnglish, cbEnglishUseBaseplates, cbUseRedAndBlue, textSymbolSize, btnTranslateEnglish, canvasEnglish, contextEnglish;
     var cmpLevelsWebcam = [1], cmpLevelsFile = [1];
     var inputImage;
+    var englishText = "";
 
     var procVars = { // iOS devices will reload the page if a frame takes too long to complete, so we need to process over time.
       processing: false,
@@ -70,7 +73,13 @@
       textRowsPerPlate = document.getElementById("text-rows-per-plate");
       btnProcessImage = document.getElementById("btn-process-image");
       lblEnglishOutput = document.getElementById("label-english-output");
-      cbUseBaseplates = document.getElementById("cb-use-baseplates");
+      textaEnglish = document.getElementById("texta-english");
+      cbEnglishUseBaseplates = document.getElementById("cb-english-use-baseplates");
+      cbUseRedAndBlue = document.getElementById("cb-use-red-and-blue");
+      textSymbolSize = document.getElementById("text-symbol-size");
+      btnTranslateEnglish = document.getElementById("btn-translate-english");
+      canvasEnglish = document.getElementById("canvas-english");
+      contextEnglish = canvasEnglish.getContext("2d");
 
       canvas.width = displayWidth;
       canvas.height = displayHeight;
@@ -79,6 +88,12 @@
 
       textRowsPerPlate.value = "" + rowsPerPlate;
       textRowsPerPlate.placeholder = "" + rowsPerPlate;
+
+      cbEnglishUseBaseplates.checked = englishUseBaseplates;
+      cbUseRedAndBlue.checked = useRedAndBlue;
+
+      textSymbolSize.value = "" + symbolSize;
+      textSymbolSize.placeholder = "" + symbolSize;
 
       if (navigator.mediaDevices === undefined) {
         navigator.mediaDevices = {};
@@ -145,6 +160,31 @@
         }
 
         textRowsPerPlate.value = str;
+      });
+
+      textaEnglish.addEventListener("input", function() {
+        englishText = textaEnglish.value;
+      });
+
+      cbEnglishUseBaseplates.addEventListener("change", function() {
+        englishUseBaseplates = cbEnglishUseBaseplates.checked;
+      });
+
+      cbUseRedAndBlue.addEventListener("change", function() {
+        useRedAndBlue = cbUseRedAndBlue.checked;
+      });
+
+      textSymbolSize.addEventListener("input", function() {
+        symbolSize = Math.max(parseInt(textSymbolSize.value), 1);
+
+        let str = "" + symbolSize
+
+        if (str == "NaN") {
+          symbolSize = 1;
+          str = "";
+        }
+
+        textSymbolSize.value = str;
       });
 
       setFileCompressionLevelsToDefault();
@@ -633,6 +673,152 @@
       }
     }
 
+    // letter must be uppercase, or one of the corner names (which are more than one character)
+    function drawSymbol(ctx, letter, x, y, size) {
+      var id = letterToSymbolID[letter];
+      if (id == undefined) return false;
+
+      var symbolBitRows = allSymbolBits[id];
+
+      ctx.lineWidth = size;
+      ctx.fillStyle = "black";
+
+      ctx.fillRect(x, y, 7 * size, 7 * size);
+
+      for (let r = 0; r < symbolBitRows.length; r++) {
+        let row = symbolBitRows[r];
+
+        for (let c = 0; c < row.length; c++) {
+          if (row[c] == 0) {
+            ctx.fillRect(x + (c + 1) * size, y + (r + 1) * size, size, size);
+          }
+        }
+      }
+
+      if (useRedAndBlue && (letter == "K" || letter == "U")) {
+        ctx.fillStyle = "red"
+      } else if (useRedAndBlue && (letter == "Q" || letter == "V")) {
+        ctx.fillStyle = "blue"
+      } else {
+        ctx.fillStyle = "white"
+      }
+
+      for (let r = 0; r < symbolBitRows.length; r++) {
+        let row = symbolBitRows[r];
+
+        for (let c = 0; c < row.length; c++) {
+          if (row[c] == 1) {
+            ctx.fillRect(x + (c + 1) * size, y + (r + 1) * size, size, size);
+          }
+        }
+      }
+
+      return true;
+    }
+
+    function translateEnglish() {
+      var letterCols = [[]];
+      var curLetterCol = letterCols[0];
+      var numLetterCols = 1;
+      var longestColLength = 0;
+
+      // Collect letters
+      for (let i = 0; i < englishText.length; i++) {
+        let letter = englishText[i];
+
+        if (letter == "\n") {
+          curLetterCol = [];
+          letterCols.push(curLetterCol);
+          numLetterCols++;
+        } else {
+          letter = letter.toUpperCase();
+
+          if (letter == " " || letterToSymbolID[letter] != undefined) {
+            curLetterCol.push(letter);
+            longestColLength = Math.max(longestColLength, curLetterCol.length);
+          }
+        }
+      }
+
+      var symbolStep = 8 * symbolSize;
+      var cWidth, cHeight, x, y;
+      var numPlatesX = 0, numPlatesY = 0;
+      var subR = 0, subC = 0;
+
+      if (englishUseBaseplates) {
+        numPlatesX = Math.ceil(numLetterCols / rowsPerPlate);
+        numPlatesY = Math.ceil(longestColLength / rowsPerPlate);
+
+        //symbolStep = Math.ceil(7 * symbolSize * (1 + tileGapFrac));
+        cWidth = symbolStep * numPlatesX * (rowsPerPlate + 2); // + 2 to account for the corner symbols
+        cHeight = symbolStep * numPlatesY * (rowsPerPlate + 2);
+      } else {
+        cWidth = symbolStep * numLetterCols;
+        cHeight = symbolStep * longestColLength;
+      }
+
+      // Extra padding for the top and left edges
+      var edgePadding = symbolStep - 7 * symbolSize;
+      cWidth += edgePadding;
+      cHeight += edgePadding;
+
+      var x = cWidth - symbolStep;
+      var y = edgePadding;
+
+      canvasEnglish.width = cWidth;
+      canvasEnglish.height = cHeight;
+
+      contextEnglish.fillStyle = "white";
+      contextEnglish.fillRect(0, 0, cWidth, cHeight); // White background instead of transparent
+
+      // Draw all baseplate corners
+      if (englishUseBaseplates) {
+        for (let c = 0; c < numPlatesX; c++) {
+          for (let r = 0; r < numPlatesY; r++) {
+            drawSymbol(contextEnglish, "cornerTL", edgePadding + c * symbolStep * (rowsPerPlate + 2), edgePadding + r * symbolStep * (rowsPerPlate + 2), symbolSize);
+            drawSymbol(contextEnglish, "cornerTR", edgePadding + c * symbolStep * (rowsPerPlate + 2) + symbolStep * (rowsPerPlate + 1), edgePadding + r * symbolStep * (rowsPerPlate + 2), symbolSize);
+            drawSymbol(contextEnglish, "cornerBL", edgePadding + c * symbolStep * (rowsPerPlate + 2), edgePadding + r * symbolStep * (rowsPerPlate + 2) + symbolStep * (rowsPerPlate + 1), symbolSize);
+            drawSymbol(contextEnglish, "cornerBR", edgePadding + c * symbolStep * (rowsPerPlate + 2) + symbolStep * (rowsPerPlate + 1), edgePadding + r * symbolStep * (rowsPerPlate + 2) + symbolStep * (rowsPerPlate + 1), symbolSize);
+          }
+        }
+      }
+
+      for (let c = 0; c < numLetterCols; c++) {
+        let letterCol = letterCols[c];
+
+        if (englishUseBaseplates && c % rowsPerPlate == 0) {
+          x -= symbolStep;
+        }
+
+        for (let r = 0; r < letterCol.length; r++) {
+          let letter = letterCol[r];
+
+          if (englishUseBaseplates && r % rowsPerPlate == 0) {
+            y += symbolStep;
+          }
+
+          // Draw the letter's symbol
+          if (letter == " ") {
+            y += symbolStep;
+          } else {
+            drawSymbol(contextEnglish, letter, x, y, symbolSize);
+            y += symbolStep;
+          }
+
+          if (englishUseBaseplates && r % rowsPerPlate == rowsPerPlate - 1) {
+            y += symbolStep;
+          }
+        }
+
+        x -= symbolStep;
+        y = edgePadding;
+
+        if (englishUseBaseplates && c % rowsPerPlate == rowsPerPlate - 1) {
+          x -= symbolStep;
+        }
+      }
+    }
+
     window.onload = onLoad;
   </script>
 
@@ -668,6 +854,30 @@
 
     <div style="margin: 15px;"></div>
     <label id="label-english-output" style="background-color:honeydew; white-space: pre-line"></label>
+
+  
+    <div style="margin: 25px;"></div>
+    <label>English to Zuish</label>
+
+    <div style="margin: 5px;"></div>
+    <textarea id="texta-english" rows="5" cols="30"></textarea>
+
+    <div style="margin: 5px;"></div>
+    <input type="checkbox" id="cb-english-use-baseplates">
+    <label for="cb-english-use-baseplates">Use Baseplates</label>
+    <input type="checkbox" id="cb-use-red-and-blue">
+    <label for="cb-use-red-and-blue">Use Red & Blue</label>
+
+    <div style="margin: 5px;"></div>
+    <input type="text" id="text-symbol-size" pattern="^[1-9]\d*$" size="2">
+    <label for="text-symbol-size">Symbol Size</label>
+
+    <div style="margin: 15px;"></div>
+    <input type="button" id="btn-translate-english" value="Translate" onclick="translateEnglish()">
+
+    <div style="margin: 15px;"></div>
+    <canvas id="canvas-english" width="100" height="100"></canvas>
+
 
     <div style="margin: 50px;"></div>
     <div style="margin: 15px;"><strong>Made for <a href="https://github.com/legokidlogan/fiducial-fez">Fiducial FEZ</a></strong></div>
