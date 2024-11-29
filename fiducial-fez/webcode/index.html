@@ -38,7 +38,7 @@
     var rowsPerPlate = 8;
     var symbolSize = 2;
 
-    var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
+    var webcam, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false, englishUseBaseplates = true, useRedAndBlue = true;
     var fileImageInput, textImageCompression, textRowsPerPlate, btnProcessImage, lblEnglishOutput;
     var textaEnglish, cbEnglishUseBaseplates, cbUseRedAndBlue, textSymbolSize, btnTranslateEnglish, linkEnglishDownload, canvasEnglish, contextEnglish;
@@ -62,7 +62,7 @@
 
 
     function onLoad() {
-      video = document.getElementById("video");
+      webcam = document.getElementById("webcam");
       canvas = document.getElementById("canvas");
       canvasSketch = document.getElementById("canvas-sketch");
       context = canvas.getContext("2d");
@@ -117,12 +117,12 @@
       navigator.mediaDevices
         .getUserMedia({ audio:false, video: { facingMode: 'environment' } })
         .then(function(stream) {
-          if ("srcObject" in video) {
-            video.srcObject = stream;
-            video.play();
+          if ("srcObject" in webcam) {
+            webcam.srcObject = stream;
+            webcam.play();
           } else {
-            video.src = window.URL.createObjectURL(stream);
-            video.play();
+            webcam.src = window.URL.createObjectURL(stream);
+            webcam.play();
           }
         })
         .catch(function(err) {
@@ -281,8 +281,8 @@
             translateMarkedImage();
           }
         }
-      } else if (video.readyState === video.HAVE_ENOUGH_DATA && !videoPaused) {
-        startProcessingImage(video, cmpLevelsWebcam);
+      } else if (webcam.readyState === webcam.HAVE_ENOUGH_DATA && !videoPaused) {
+        startProcessingImage(webcam, cmpLevelsWebcam);
       }
     }
 
@@ -838,7 +838,7 @@
 
   <div id="canvas-container">
     <div style="margin: 10px;"><strong>-= Fiducial FEZ Scanner =-</strong></div>
-    <video id="video" autoplay="true" style="display:none;"></video>
+    <video id="webcam" autoplay="true" style="display:none;"></video>
     <canvas id="canvas"></canvas>
     <canvas id="canvas-sketch" style="visibility: hidden" hidden="true"></canvas>
     <div style="margin: 5px;"></div>
