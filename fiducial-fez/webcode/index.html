@@ -96,6 +96,10 @@
       textSymbolSize.value = "" + symbolSize;
       textSymbolSize.placeholder = "" + symbolSize;
 
+      webcam.setAttribute('autoplay', '');
+      webcam.setAttribute('muted', '');
+      webcam.setAttribute('playsinline', '');
+
       if (navigator.mediaDevices === undefined) {
         navigator.mediaDevices = {};
       }
