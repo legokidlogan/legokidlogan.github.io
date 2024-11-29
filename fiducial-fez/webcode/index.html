@@ -647,6 +647,10 @@
     <canvas id="canvas-sketch" style="visibility: hidden" hidden="true"></canvas>
     <div style="margin: 5px;"></div>
 
+    <input type="text" id="text-rows-per-plate" pattern="^[1-9]\d*$" size="2">
+    <label for="text-rows-per-plate" id="label-rows-per-plate">Rows Per Plate</label>
+    <div style="margin: 5px;"></div>
+
     <input type="checkbox" id="cb-pause-video">
     <label for="cb-pause-video">Paused</label>
 
@@ -657,10 +661,6 @@
       <input type="button" id="btn-default-compression-levels" value="Default" onclick="setFileCompressionLevelsToDefault()">
       <input type="text" id="text-image-compression" pattern="^\s*(?:\d+(?:\.\d+)?\s*)+$" size="10">
       <label for="text-image-compression" id="label-image-compression">Compression Levels</label>
-
-      <div style="margin: 5px;"></div>
-      <input type="text" id="text-rows-per-plate" pattern="^[1-9]\d*$" size="2">
-      <label for="text-rows-per-plate" id="label-rows-per-plate">Rows Per Plate</label>
 
       <div style="margin: 15px;"></div>
       <input type="button" id="btn-process-image" value="Translate">
