@@ -41,7 +41,7 @@
     var video, canvas, canvasSketch, context, contextSketch, imageData, detector;
     var cbPauseVideo, videoPaused = false, fileLoaded = false, englishUseBaseplates = true, useRedAndBlue = true;
     var fileImageInput, textImageCompression, textRowsPerPlate, btnProcessImage, lblEnglishOutput;
-    var textaEnglish, cbEnglishUseBaseplates, cbUseRedAndBlue, textSymbolSize, btnTranslateEnglish, canvasEnglish, contextEnglish;
+    var textaEnglish, cbEnglishUseBaseplates, cbUseRedAndBlue, textSymbolSize, btnTranslateEnglish, linkEnglishDownload, canvasEnglish, contextEnglish;
     var cmpLevelsWebcam = [1], cmpLevelsFile = [1];
     var inputImage;
     var englishText = "";
@@ -78,6 +78,7 @@
       cbUseRedAndBlue = document.getElementById("cb-use-red-and-blue");
       textSymbolSize = document.getElementById("text-symbol-size");
       btnTranslateEnglish = document.getElementById("btn-translate-english");
+      linkEnglishDownload = document.getElementById("link-english-download");
       canvasEnglish = document.getElementById("canvas-english");
       contextEnglish = canvasEnglish.getContext("2d");
 
@@ -817,6 +818,13 @@
           x -= symbolStep;
         }
       }
+
+      if (longestColLength == 0) {
+        linkEnglishDownload.hidden = true;
+      } else {
+        linkEnglishDownload.hidden = false;
+        linkEnglishDownload.href = canvasEnglish.toDataURL();
+      }
     }
 
     window.onload = onLoad;
@@ -876,6 +884,9 @@
     <input type="button" id="btn-translate-english" value="Translate" onclick="translateEnglish()">
 
     <div style="margin: 15px;"></div>
+    <a id="link-english-download" href="" hidden="true">Mobile Download</a>
+
+    <div style="margin: 5px;"></div>
     <canvas id="canvas-english" width="100" height="100"></canvas>
 
 
