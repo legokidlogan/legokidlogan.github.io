@@ -147,6 +147,18 @@
       fileImageInput.addEventListener("change", handleFileSubmit);
       textImageCompression.addEventListener("input", updateFileCompressionLevels);
 
+      window.addEventListener("paste", e => { // Allow pasting images from clipboard
+        var files = e.clipboardData.files;
+        if (files.length == 0) return;
+
+        var file = files[0];
+        var fileType = file.type;
+        if (fileType != "image/png" && fileType != "image/jpeg") return;
+
+        fileImageInput.files = files;
+        handleFileSubmit();
+      });
+
       btnProcessImage.addEventListener("click", function() {
         if (!fileLoaded) return;
         if (procVars.processing) return;
